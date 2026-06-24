@@ -18,7 +18,7 @@ python3 main.py
 
 # Run the sync job once (Cloud Run Job mode)
 python3 run_job.py
-python3 run_job.py --partition 2026-05 --report focus   # ad-hoc single period / report
+python3 run_job.py --partition 2026-05   # ad-hoc single billing period
 
 # Run all tests (note: local env may need protobuf workaround)
 PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python python3 -m pytest
@@ -35,19 +35,19 @@ A FastAPI service that also runs as a Cloud Run Job (triggered daily by Cloud Sc
 Azure Blob (Cost Management exports, Parquet)  →  GCS (staging)  →  BigQuery (month-partitioned WRITE_TRUNCATE)
 ```
 
-Three report types, each landing in its own table:
+**One job = one report.** `BILLING_SCHEMA` selects which report type the job syncs (run one job per type to cover all three):
 
-| Report type | Export env var | Default BQ table | Schema |
+| `BILLING_SCHEMA` | Export env var | BQ table env var | Schema |
 |---|---|---|---|
-| `actual` | `EXPORT_ACTUAL_NAME` | `azure_cost_actual` | EA cost-and-usage details |
-| `amortized` | `EXPORT_AMORTIZED_NAME` | `azure_cost_amortized` | EA cost-and-usage details (same columns as actual) |
-| `focus` | `EXPORT_FOCUS_NAME` | `azure_cost_focus` | FOCUS 1.2-preview |
+| `actual` | `EXPORT_NAME` | `BQ_TABLE` | EA cost-and-usage details |
+| `amortized` | `EXPORT_NAME` | `BQ_TABLE` | EA cost-and-usage details (same columns as actual) |
+| `focus` | `EXPORT_NAME` | `BQ_TABLE` | FOCUS 1.2-preview |
 
-**Flow:** `POST /run` or `run_job.py` → `src/pipeline.py::run_pipeline(report, partition)` → for each selected export × each billing period: `AzureBlobSource.latest_run()` → `AzureBlobSource.stream()` → `upload_to_gcs()` → `run_load_job(partition_date=...)`.
+**Flow:** `POST /run` or `run_job.py` → `src/pipeline.py::run_pipeline(partition)` → for each billing period: `AzureBlobSource.latest_run()` → `AzureBlobSource.stream()` → `upload_to_gcs()` → `run_load_job(partition_date=...)`. `BILLING_SCHEMA` maps to the BigQuery schema/clustering via `SCHEMA_MAP` in `src/bigquery.py`.
 
 **Key behaviors:**
 - By default each run syncs the **current month + previous month** (`PREVIOUS_MONTHS`, default 1). Re-syncing the previous month each day absorbs Azure's restatements (Azure re-states open-month costs for ~5 days after month close) via partition overwrite.
-- An export is "configured" when its `EXPORT_*_NAME` env var is set; at least one is required. `REPORT` env or `--report`/`POST {report}` narrows a run to one type.
+- `EXPORT_NAME`, `BQ_TABLE`, and `BILLING_SCHEMA` are all required; `BILLING_SCHEMA` must be one of `actual`/`amortized`/`focus` (see `config.BILLING_SCHEMAS`).
 - Ad-hoc backfill: `--partition YYYY-MM` (or `PARTITION` env, or `POST {partition}`) processes that single billing period.
 - **Manifest is the readiness gate** (`src/sources/azure_blob.py`): only run folders containing a `manifest.json`/`_manifest.json` are ingested; an in-progress run (parquet but no manifest) is ignored. The manifest's `blobs[]` is the authoritative file list — never glob. When multiple runs exist for a month (`CreateNewReport` mode), the latest by `runInfo.submittedTime` wins. No manifest under the month folder → `period.skipped`, retried next run.
 - Blob layout read: `{AZURE_ROOT_FOLDER_PATH}/{exportName}/{YYYYMMDD-YYYYMMDD}/{runId}/part*.parquet` (+ manifest). The `YYYYMMDD-YYYYMMDD` folder is the full month range.
@@ -65,7 +65,7 @@ Structured JSON to stdout via `python-json-logger`. Every line has `log_event`, 
 | `log_event` | Level | When |
 |---|---|---|
 | `request.received` | INFO | Start of `POST /run` |
-| `pipeline.started` | INFO | run_id generated; includes `reports`, `periods` |
+| `pipeline.started` | INFO | run_id generated; includes `report`, `periods` |
 | `period.started` / `period.complete` | INFO | Per (report, billing period) |
 | `blob.run.selected` | INFO | Latest manifest chosen; includes `run_id`, `data_version`, `blob_count` |
 | `period.skipped` | WARNING | No manifest (`reason: no_export_files`) or empty manifest (`empty_manifest`) |

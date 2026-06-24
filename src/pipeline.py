@@ -57,7 +57,7 @@ def _build_source(cfg: Config) -> AzureBlobSource:
     )
 
 
-def run_pipeline(partition: str | None = None, report: str | None = None) -> dict:
+def run_pipeline(partition: str | None = None) -> dict:
     cfg = Config()
     source = _build_source(cfg)
 
@@ -71,12 +71,12 @@ def run_pipeline(partition: str | None = None, report: str | None = None) -> dic
     else:
         periods = billing_periods(now.date(), cfg.previous_months)
 
-    specs = cfg.selected_exports(report)
+    schema_config = SCHEMA_MAP[cfg.billing_schema]
 
     logger.info("pipeline.started", extra={
         "log_event": "pipeline.started",
         "run_id": run_id,
-        "reports": [s.report_type for s in specs],
+        "report": cfg.billing_schema,
         "periods": [p.strftime("%Y-%m") for p in periods],
         "enforce_schema": cfg.bq_enforce_schema,
     })
@@ -85,15 +85,13 @@ def run_pipeline(partition: str | None = None, report: str | None = None) -> dic
     periods_skipped = 0
     results = []
 
-    for spec in specs:
-        schema_config = SCHEMA_MAP[spec.report_type]
-        for month in periods:
-            result = _sync_one(cfg, source, spec, schema_config, month, run_id)
-            results.append(result)
-            if result["skipped"]:
-                periods_skipped += 1
-            else:
-                periods_loaded += 1
+    for month in periods:
+        result = _sync_one(cfg, source, schema_config, month, run_id)
+        results.append(result)
+        if result["skipped"]:
+            periods_skipped += 1
+        else:
+            periods_loaded += 1
 
     duration = time.monotonic() - start_time
     logger.info("pipeline.complete", extra={
@@ -106,7 +104,7 @@ def run_pipeline(partition: str | None = None, report: str | None = None) -> dic
 
     return {
         "run_id": run_id,
-        "reports": [s.report_type for s in specs],
+        "report": cfg.billing_schema,
         "periods": [p.strftime("%Y-%m") for p in periods],
         "periods_loaded": periods_loaded,
         "periods_skipped": periods_skipped,
@@ -114,30 +112,30 @@ def run_pipeline(partition: str | None = None, report: str | None = None) -> dic
     }
 
 
-def _sync_one(cfg, source, spec, schema_config, month: date, run_id: str) -> dict:
+def _sync_one(cfg, source, schema_config, month: date, run_id: str) -> dict:
     partition_str = month.strftime("%Y-%m")
     base_result = {
-        "report": spec.report_type,
-        "export_name": spec.export_name,
+        "report": cfg.billing_schema,
+        "export_name": cfg.export_name,
         "partition": partition_str,
     }
 
     logger.info("period.started", extra={
         "log_event": "period.started",
         "run_id": run_id,
-        "report": spec.report_type,
-        "export_name": spec.export_name,
+        "report": cfg.billing_schema,
+        "export_name": cfg.export_name,
         "partition": partition_str,
     })
 
     try:
-        run = source.latest_run(cfg.azure_root_folder_path, spec.export_name, month)
+        run = source.latest_run(cfg.azure_root_folder_path, cfg.export_name, month)
     except FileNotFoundError as exc:
         logger.warning("period.skipped", extra={
             "log_event": "period.skipped",
             "run_id": run_id,
-            "report": spec.report_type,
-            "export_name": spec.export_name,
+            "report": cfg.billing_schema,
+            "export_name": cfg.export_name,
             "partition": partition_str,
             "reason": "no_export_files",
             "detail": str(exc),
@@ -148,8 +146,8 @@ def _sync_one(cfg, source, spec, schema_config, month: date, run_id: str) -> dic
         logger.warning("period.skipped", extra={
             "log_event": "period.skipped",
             "run_id": run_id,
-            "report": spec.report_type,
-            "export_name": spec.export_name,
+            "report": cfg.billing_schema,
+            "export_name": cfg.export_name,
             "partition": partition_str,
             "reason": "empty_manifest",
             "run_id_blob": run.run_id,
@@ -157,32 +155,32 @@ def _sync_one(cfg, source, spec, schema_config, month: date, run_id: str) -> dic
         return {**base_result, "skipped": True, "reason": "empty_manifest", "files": 0}
 
     gcs_base = _join(
-        cfg.gcs_destination_prefix, spec.export_name, "data", run_id, f"month={partition_str}"
+        cfg.gcs_destination_prefix, cfg.export_name, "data", run_id, f"month={partition_str}"
     )
     gcs_uris = []
     for blob_name in run.blobs:
         dest = f"{gcs_base}/{_basename(blob_name)}"
         uri = upload_to_gcs(
             source.stream(blob_name), cfg.gcs_bucket, dest,
-            run_id=run_id, export_name=spec.export_name,
+            run_id=run_id, export_name=cfg.export_name,
             partition=partition_str, source_blob=blob_name,
         )
         gcs_uris.append(uri)
 
     wildcard = f"gs://{cfg.gcs_bucket}/{gcs_base}/*.parquet"
-    bq_table = f"{cfg.bq_project_id}.{cfg.bq_dataset_id}.{spec.bq_table_id}"
+    bq_table = f"{cfg.bq_project_id}.{cfg.bq_dataset_id}.{cfg.bq_table_id}"
     run_load_job(
-        wildcard, cfg.bq_project_id, cfg.bq_dataset_id, spec.bq_table_id,
+        wildcard, cfg.bq_project_id, cfg.bq_dataset_id, cfg.bq_table_id,
         partition_date=month, schema_config=schema_config,
-        run_id=run_id, export_name=spec.export_name, partition_label=partition_str,
+        run_id=run_id, export_name=cfg.export_name, partition_label=partition_str,
         kms_key_name=cfg.bq_cmek_key_name, enforce_schema=cfg.bq_enforce_schema,
     )
 
     logger.info("period.complete", extra={
         "log_event": "period.complete",
         "run_id": run_id,
-        "report": spec.report_type,
-        "export_name": spec.export_name,
+        "report": cfg.billing_schema,
+        "export_name": cfg.export_name,
         "partition": partition_str,
         "files": len(gcs_uris),
         "bq_table": bq_table,

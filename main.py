@@ -15,7 +15,6 @@ app = FastAPI()
 
 
 class RunRequest(BaseModel):
-    report: str | None = None       # actual | amortized | focus (default: all configured)
     partition: str | None = None    # YYYY-MM, e.g. "2026-04"
 
 
@@ -28,11 +27,10 @@ def health():
 def run(body: RunRequest = RunRequest()):
     logger.info("request.received", extra={
         "log_event": "request.received",
-        "report": body.report,
         "partition": body.partition,
     })
     try:
-        result = run_pipeline(report=body.report, partition=body.partition)
+        result = run_pipeline(partition=body.partition)
         return result
     except Exception as exc:
         return JSONResponse(status_code=500, content={"error": str(exc)})

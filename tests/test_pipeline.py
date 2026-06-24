@@ -16,16 +16,16 @@ def _env():
         "GCS_DESTINATION_PREFIX": "billing",
         "BQ_PROJECT_ID": "my-project",
         "BQ_DATASET_ID": "billing",
-        "EXPORT_ACTUAL_NAME": "act-export",
-        "EXPORT_AMORTIZED_NAME": "amort-export",
-        "EXPORT_FOCUS_NAME": "focus-export",
+        "EXPORT_NAME": "focus-export",
+        "BQ_TABLE": "azure_cost_focus",
+        "BILLING_SCHEMA": "focus",
     }
 
 
 def _setenv(monkeypatch, env):
     for k in (
-        "REPORT", "PREVIOUS_MONTHS", "BQ_ENFORCE_SCHEMA",
-        "EXPORT_ACTUAL_NAME", "EXPORT_AMORTIZED_NAME", "EXPORT_FOCUS_NAME",
+        "PREVIOUS_MONTHS", "BQ_ENFORCE_SCHEMA",
+        "EXPORT_NAME", "BQ_TABLE", "BILLING_SCHEMA",
         "AZURE_STORAGE_CONNECTION_STRING", "AZURE_STORAGE_SAS_TOKEN",
     ):
         monkeypatch.delenv(k, raising=False)
@@ -64,7 +64,7 @@ def test_billing_periods_three_previous():
 
 # ── run_pipeline ───────────────────────────────────────────────────────────────
 
-def test_pipeline_processes_three_reports_two_months(monkeypatch):
+def test_pipeline_processes_one_report_two_months(monkeypatch):
     _setenv(monkeypatch, _env())
     fixed_now = datetime(2026, 6, 23, 12, 0, 0, tzinfo=timezone.utc)
     expected_run_id = f"20260623-{int(fixed_now.timestamp())}"
@@ -81,17 +81,17 @@ def test_pipeline_processes_three_reports_two_months(monkeypatch):
         result = run_pipeline()
 
     assert result["run_id"] == expected_run_id
-    assert result["reports"] == ["actual", "amortized", "focus"]
+    assert result["report"] == "focus"
     assert result["periods"] == ["2026-05", "2026-06"]
-    # 3 reports x 2 months = 6 loads
-    assert result["periods_loaded"] == 6
+    # 1 report x 2 months = 2 loads
+    assert result["periods_loaded"] == 2
     assert result["periods_skipped"] == 0
-    assert mock_bq.call_count == 6
+    assert mock_bq.call_count == 2
 
     # latest_run called with (root_folder, export_name, month)
     first_call = source.latest_run.call_args_list[0]
     assert first_call.args[0] == "ea"
-    assert first_call.args[1] == "act-export"
+    assert first_call.args[1] == "focus-export"
     assert first_call.args[2] == date(2026, 5, 1)
 
     # each BQ load gets a gcs wildcard + month decorator + run_id
@@ -99,24 +99,6 @@ def test_pipeline_processes_three_reports_two_months(monkeypatch):
         assert call.args[0].endswith("/*.parquet")
         assert call.kwargs["partition_date"] in (date(2026, 5, 1), date(2026, 6, 1))
         assert call.kwargs["run_id"] == expected_run_id
-
-
-def test_pipeline_report_filter(monkeypatch):
-    _setenv(monkeypatch, _env())
-    fixed_now = datetime(2026, 6, 23, 12, 0, 0, tzinfo=timezone.utc)
-    source = MagicMock()
-    source.latest_run.return_value = _run()
-    source.stream.return_value = MagicMock()
-
-    with patch("src.pipeline.datetime") as mock_dt, \
-         patch("src.pipeline._build_source", return_value=source), \
-         patch("src.pipeline.upload_to_gcs", side_effect=lambda s, b, d, **k: "gs://x/y"), \
-         patch("src.pipeline.run_load_job") as mock_bq:
-        mock_dt.now.return_value = fixed_now
-        result = run_pipeline(report="focus")
-
-    assert result["reports"] == ["focus"]
-    assert mock_bq.call_count == 2  # focus only, 2 months
 
 
 def test_pipeline_partition_single_month(monkeypatch):
@@ -128,7 +110,7 @@ def test_pipeline_partition_single_month(monkeypatch):
     with patch("src.pipeline._build_source", return_value=source), \
          patch("src.pipeline.upload_to_gcs", side_effect=lambda s, b, d, **k: "gs://x/y"), \
          patch("src.pipeline.run_load_job") as mock_bq:
-        result = run_pipeline(partition="2026-04", report="actual")
+        result = run_pipeline(partition="2026-04")
 
     assert result["periods"] == ["2026-04"]
     assert mock_bq.call_count == 1
@@ -147,7 +129,7 @@ def test_pipeline_uploads_each_manifest_blob(monkeypatch):
          patch("src.pipeline.upload_to_gcs", side_effect=lambda s, b, d, **k: f"gs://{b}/{d}") as mock_gcs, \
          patch("src.pipeline.run_load_job"):
         mock_dt.now.return_value = fixed_now
-        result = run_pipeline(report="focus", partition="2026-06")
+        result = run_pipeline(partition="2026-06")
 
     # 2 parts uploaded
     assert mock_gcs.call_count == 2
@@ -168,7 +150,7 @@ def test_pipeline_period_skipped_on_missing_manifest(monkeypatch, caplog):
          patch("src.pipeline.upload_to_gcs") as mock_gcs, \
          patch("src.pipeline.run_load_job") as mock_bq:
         mock_dt.now.return_value = fixed_now
-        result = run_pipeline(report="actual")
+        result = run_pipeline()
 
     assert result["periods_loaded"] == 0
     assert result["periods_skipped"] == 2
@@ -192,7 +174,7 @@ def test_pipeline_empty_manifest_skips_load(monkeypatch, caplog):
          patch("src.pipeline.upload_to_gcs") as mock_gcs, \
          patch("src.pipeline.run_load_job") as mock_bq:
         mock_dt.now.return_value = fixed_now
-        result = run_pipeline(report="actual", partition="2026-06")
+        result = run_pipeline(partition="2026-06")
 
     assert result["periods_skipped"] == 1
     mock_gcs.assert_not_called()
@@ -215,10 +197,10 @@ def test_pipeline_logs_started_and_complete(monkeypatch, caplog):
          patch("src.pipeline.upload_to_gcs", side_effect=lambda s, b, d, **k: "gs://x/y"), \
          patch("src.pipeline.run_load_job"):
         mock_dt.now.return_value = fixed_now
-        run_pipeline(report="focus")
+        run_pipeline()
 
     started = [r for r in caplog.records if getattr(r, "log_event", None) == "pipeline.started"]
     complete = [r for r in caplog.records if getattr(r, "log_event", None) == "pipeline.complete"]
     assert len(started) == 1 and started[0].run_id == expected_run_id
-    assert started[0].reports == ["focus"]
+    assert started[0].report == "focus"
     assert len(complete) == 1 and complete[0].periods_loaded == 2

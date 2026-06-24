@@ -27,7 +27,7 @@ FOCUS12_SCHEMA = SchemaConfig(
     cluster_fields=("ChargePeriodStart", "SubAccountName"),
 )
 
-# Maps a report type (see src.config.REPORT_TYPES) to its BigQuery schema.
+# Maps a BILLING_SCHEMA value (see src.config.BILLING_SCHEMAS) to its BigQuery schema.
 SCHEMA_MAP: dict[str, SchemaConfig] = {
     "actual": EA_USAGE_SCHEMA,
     "amortized": EA_USAGE_SCHEMA,
