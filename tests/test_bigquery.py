@@ -22,6 +22,11 @@ def test_schema_map_covers_three_report_types():
     assert SCHEMA_MAP["focus"] is FOCUS12_SCHEMA
 
 
+def test_schema_map_keys_match_billing_schemas():
+    from src.config import BILLING_SCHEMAS
+    assert set(BILLING_SCHEMAS) == set(SCHEMA_MAP)
+
+
 def test_load_job_defaults_to_embedded_schema():
     job = _mock_job()
     bq_client = MagicMock()

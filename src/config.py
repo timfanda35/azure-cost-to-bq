@@ -1,36 +1,12 @@
 import os
-from dataclasses import dataclass
 
 
-# Report types this app understands. Each maps to its env var names + default
-# BigQuery table. The schema for each report type is resolved in src.bigquery
-# (SCHEMA_MAP) so this module stays free of the BigQuery client dependency.
-REPORT_TYPES: dict[str, dict] = {
-    "actual": {
-        "export_env": "EXPORT_ACTUAL_NAME",
-        "table_env": "BQ_TABLE_ACTUAL",
-        "default_table": "azure_cost_actual",
-    },
-    "amortized": {
-        "export_env": "EXPORT_AMORTIZED_NAME",
-        "table_env": "BQ_TABLE_AMORTIZED",
-        "default_table": "azure_cost_amortized",
-    },
-    "focus": {
-        "export_env": "EXPORT_FOCUS_NAME",
-        "table_env": "BQ_TABLE_FOCUS",
-        "default_table": "azure_cost_focus",
-    },
-}
-
-
-@dataclass(frozen=True)
-class ExportSpec:
-    """One Cost Management export to sync: its report type, the Azure export
-    name (a path segment in blob storage), and the destination BigQuery table."""
-    report_type: str
-    export_name: str
-    bq_table_id: str
+# Report types this app understands. One Cost Management export — and therefore
+# one Cloud Run Job — maps to exactly one of these via the BILLING_SCHEMA env var.
+# The value selects the BigQuery schema in src.bigquery (SCHEMA_MAP) so this module
+# stays free of the BigQuery client dependency; keep this tuple in sync with
+# SCHEMA_MAP's keys (guarded by a test).
+BILLING_SCHEMAS: tuple[str, ...] = ("actual", "amortized", "focus")
 
 
 class Config:
@@ -78,44 +54,25 @@ class Config:
         self.bq_cmek_key_name = os.environ.get("BQ_CMEK_KEY_NAME") or None
         self.bq_enforce_schema = _env_bool("BQ_ENFORCE_SCHEMA", default=False)
 
-        # ── Report exports (configured = export name present) ────────────
-        self.exports: list[ExportSpec] = []
-        for report_type, meta in REPORT_TYPES.items():
-            export_name = os.environ.get(meta["export_env"], "").strip()
-            if not export_name:
-                continue
-            table_id = os.environ.get(meta["table_env"], "").strip() or meta["default_table"]
-            self.exports.append(ExportSpec(report_type, export_name, table_id))
-        if not self.exports:
+        # ── Report export (one export = one job) ─────────────────────────
+        self.export_name = self._require("EXPORT_NAME")
+        self.bq_table_id = self._require("BQ_TABLE")
+        self.billing_schema = self._require("BILLING_SCHEMA").strip()
+        if self.billing_schema not in BILLING_SCHEMAS:
             raise ValueError(
-                "No exports configured. Set at least one of: "
-                + ", ".join(m["export_env"] for m in REPORT_TYPES.values())
+                f"BILLING_SCHEMA must be one of {list(BILLING_SCHEMAS)}, "
+                f"got {self.billing_schema!r}"
             )
 
-        # ── Sync window / runtime filter ─────────────────────────────────
+        # ── Sync window ──────────────────────────────────────────────────
         self.previous_months = _env_int("PREVIOUS_MONTHS", default=1, minimum=0)
-        self.report_filter = (os.environ.get("REPORT") or "").strip() or None
-        if self.report_filter and self.report_filter not in REPORT_TYPES:
-            raise ValueError(
-                f"REPORT must be one of {list(REPORT_TYPES)}, got {self.report_filter!r}"
-            )
-
-    def selected_exports(self, report: str | None = None) -> list[ExportSpec]:
-        """Exports to process this run, narrowed by an explicit ``report`` arg
-        (CLI) or the REPORT env filter. ``report`` takes precedence."""
-        chosen = report or self.report_filter
-        if chosen is None:
-            return list(self.exports)
-        if chosen not in REPORT_TYPES:
-            raise ValueError(f"Unknown report {chosen!r}; expected one of {list(REPORT_TYPES)}")
-        return [e for e in self.exports if e.report_type == chosen]
 
     def __repr__(self) -> str:
         return (
             f"Config(account_url={self.azure_storage_account_url!r}, "
             f"container={self.azure_storage_container!r}, "
             f"auth={self.blob_auth_mode!r}, "
-            f"reports={[e.report_type for e in self.exports]!r}, "
+            f"report={self.billing_schema!r}, table={self.bq_table_id!r}, "
             f"gcs_bucket={self.gcs_bucket!r})"
         )
 

@@ -10,10 +10,10 @@ The team creates the exports manually in the Azure portal at the **EA enrollment
 
 ## What it does
 
-- Syncs three report types, each into its own BigQuery table: **actual**, **amortized**, and **FOCUS 1.2-preview**.
+- Syncs one report type per job into its own BigQuery table — **actual**, **amortized**, or **FOCUS 1.2-preview** (`BILLING_SCHEMA`). Run one job per report type to cover all three.
 - Each scheduled run loads the **current month + previous month** (configurable). Re-loading the previous month each day picks up Azure's late restatements automatically (`WRITE_TRUNCATE` per month partition).
 - Drives discovery from each export run's `manifest.json` — only complete runs are ingested, and the latest run per month wins.
-- Supports ad-hoc loads of a specific billing period and/or a single report type.
+- Supports ad-hoc loads of a specific billing period.
 
 ## Prerequisites
 
@@ -26,24 +26,84 @@ The team creates the exports manually in the Azure portal at the **EA enrollment
 
 ## Configuration
 
-Copy `.env.example` to `.env` and fill it in. Required: `AZURE_STORAGE_ACCOUNT_URL`, `AZURE_STORAGE_CONTAINER`, blob auth (SP/SAS/connection string), at least one `EXPORT_*_NAME`, `GCS_BUCKET`, `BQ_PROJECT_ID`, `BQ_DATASET_ID`. See `.env.example` for the full list and `CLAUDE.md` for behavior details.
+Copy `.env.example` to `.env` and fill it in. One job syncs one report type. Required: `AZURE_STORAGE_ACCOUNT_URL`, `AZURE_STORAGE_CONTAINER`, blob auth (SP/SAS/connection string), `EXPORT_NAME`, `BILLING_SCHEMA`, `BQ_TABLE`, `GCS_BUCKET`, `BQ_PROJECT_ID`, `BQ_DATASET_ID`. See the full reference below and `CLAUDE.md` for behavior details.
+
+## Environment Variables
+
+**Azure Blob — connection**
+
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `AZURE_STORAGE_ACCOUNT_URL` | Yes | — | Storage account base URL (`https://acct.blob.core.windows.net`) |
+| `AZURE_STORAGE_CONTAINER` | Yes | — | Container holding the Cost Management exports |
+| `AZURE_BLOB_ENDPOINT_URL` | No | (account URL) | Override blob endpoint (e.g. private link) |
+| `AZURE_ROOT_FOLDER_PATH` | No | `""` | Path prefix inside the container where exports live |
+
+**Azure Blob — auth** (one method required; priority: connection string > SAS > service principal)
+
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `AZURE_STORAGE_CONNECTION_STRING` | One-of | — | Full connection string (priority 1) |
+| `AZURE_STORAGE_SAS_TOKEN` | One-of | — | SAS token (priority 2) |
+| `AZURE_TENANT_ID` | One-of | — | Service principal tenant (priority 3) |
+| `AZURE_CLIENT_ID` | One-of | — | Service principal app/client ID (priority 3) |
+| `AZURE_CLIENT_SECRET` | One-of | — | Service principal secret — store in Secret Manager (priority 3) |
+
+**Report export** (one report per job)
+
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `EXPORT_NAME` | Yes | — | Azure Cost Management export name (a path segment in blob storage) |
+| `BILLING_SCHEMA` | Yes | — | Report type / schema: `actual`, `amortized`, or `focus` (FOCUS 1.2-preview) |
+
+**GCS staging**
+
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `GCS_BUCKET` | Yes | — | Staging bucket for parquet before BQ load |
+| `GCS_DESTINATION_PREFIX` | No | `""` | Path prefix inside the staging bucket |
+
+**BigQuery target**
+
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `BQ_PROJECT_ID` | Yes | — | Project holding the dataset/tables |
+| `BQ_DATASET_ID` | Yes | — | Target dataset |
+| `BQ_TABLE` | Yes | — | Destination table for this report (e.g. `azure_cost_focus`) |
+| `BQ_ENFORCE_SCHEMA` | No | `false` | Apply explicit JSON schema from `src/bq_schema/` instead of parquet's embedded schema |
+| `BQ_CMEK_KEY_NAME` | No | — | Cloud KMS key resource name for the load job |
+
+**Run window**
+
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `PREVIOUS_MONTHS` | No | `1` | Previous months to sync alongside the current month |
+| `PARTITION` | No | — | Single billing period `YYYY-MM` to load; `--partition` CLI arg wins |
+
+**Runtime**
+
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `LOG_LEVEL` | No | `INFO` | Logging level (`DEBUG`/`INFO`/`WARNING`/`ERROR`/`CRITICAL`) |
+| `PORT` | No | `8080` | HTTP port when running `main.py` (server mode) |
+
+`BQ_ENFORCE_SCHEMA` accepts `1`/`true`/`yes`/`on` (case-insensitive). `PARTITION` is overridden by the `--partition` CLI equivalent.
 
 ## Run locally
 
 ```bash
 pip install -r requirements-dev.txt
 
-# One-off sync (current + previous month, all configured reports)
+# One-off sync (current + previous month, for this job's configured report)
 python3 run_job.py
 
-# Ad-hoc: a specific billing period and/or a single report type
+# Ad-hoc: a specific billing period
 python3 run_job.py --partition 2026-05
-python3 run_job.py --partition 2026-05 --report focus
 
 # As an HTTP server
 python3 main.py
 curl -X POST localhost:8080/run -H 'content-type: application/json' \
-  -d '{"report": "focus", "partition": "2026-05"}'
+  -d '{"partition": "2026-05"}'
 ```
 
 ## Tests
@@ -64,7 +124,7 @@ IMAGE=ghcr.io/<owner>/azure-cost-to-bq:latest
 gcloud run jobs deploy azure-cost-to-bq \
   --image "$IMAGE" \
   --service-account "$SERVICE_ACCOUNT" \
-  --set-env-vars "AZURE_STORAGE_ACCOUNT_URL=...,AZURE_STORAGE_CONTAINER=exports,EXPORT_ACTUAL_NAME=...,EXPORT_AMORTIZED_NAME=...,EXPORT_FOCUS_NAME=...,GCS_BUCKET=...,BQ_PROJECT_ID=...,BQ_DATASET_ID=billing" \
+  --set-env-vars "AZURE_STORAGE_ACCOUNT_URL=...,AZURE_STORAGE_CONTAINER=exports,EXPORT_NAME=...,BILLING_SCHEMA=focus,BQ_TABLE=azure_cost_focus,GCS_BUCKET=...,BQ_PROJECT_ID=...,BQ_DATASET_ID=billing" \
   --set-secrets "AZURE_CLIENT_SECRET=azure-cost-sp-secret:latest" \
   --set-env-vars "AZURE_TENANT_ID=...,AZURE_CLIENT_ID=..."
 
