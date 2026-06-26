@@ -52,7 +52,6 @@ class Config:
         self.bq_project_id = self._require("BQ_PROJECT_ID")
         self.bq_dataset_id = self._require("BQ_DATASET_ID")
         self.bq_cmek_key_name = os.environ.get("BQ_CMEK_KEY_NAME") or None
-        self.bq_enforce_schema = _env_bool("BQ_ENFORCE_SCHEMA", default=False)
 
         # ── Report export (one export = one job) ─────────────────────────
         self.export_name = self._require("EXPORT_NAME")
@@ -82,13 +81,6 @@ class Config:
         if not val:
             raise ValueError(f"Required env var {name!r} is not set or is empty")
         return val
-
-
-def _env_bool(name: str, *, default: bool) -> bool:
-    raw = os.environ.get(name)
-    if raw is None or raw == "":
-        return default
-    return raw.strip().lower() in ("1", "true", "yes", "on")
 
 
 def _env_int(name: str, *, default: int, minimum: int | None = None) -> int:

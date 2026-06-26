@@ -49,15 +49,12 @@ def run_load_job(
     export_name: str = "",
     partition_label: str = "",
     kms_key_name: str | None = None,
-    enforce_schema: bool = False,
 ) -> None:
     """Load parquet file(s) from GCS into BigQuery (WRITE_TRUNCATE).
 
-    Parquet is self-describing, so by default the column schema is taken from
-    the files themselves — the most robust option for Azure exports whose exact
-    physical types we don't control. Set ``enforce_schema=True`` to instead apply
-    the explicit JSON schema in ``schema_config.schema_path`` (once verified
-    against a real export).
+    The load always applies the explicit JSON schema in
+    ``schema_config.schema_path`` so column types are deterministic regardless of
+    the physical types a given export emits.
 
     When ``partition_date`` is given the load targets that specific month
     partition using a decorator (``table$YYYYMM``), replacing only that partition
@@ -79,8 +76,7 @@ def run_load_job(
         ),
         clustering_fields=list(schema_config.cluster_fields),
     )
-    if enforce_schema:
-        job_config.schema = client.schema_from_json(schema_config.schema_path)
+    job_config.schema = client.schema_from_json(schema_config.schema_path)
     if kms_key_name:
         job_config.destination_encryption_configuration = bigquery.EncryptionConfiguration(
             kms_key_name=kms_key_name
