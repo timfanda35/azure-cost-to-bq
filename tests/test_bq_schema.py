@@ -56,4 +56,4 @@ def test_partition_and_cluster_fields_have_expected_types():
     assert focus["BillingPeriodStart"] == "TIMESTAMP"
     assert focus["BilledCost"] == "BIGNUMERIC"
     assert focus["EffectiveCost"] == "BIGNUMERIC"
-    assert focus["x_InvoiceSectionId"] == "INTEGER"
+    assert focus["x_InvoiceSectionId"] == "STRING"
