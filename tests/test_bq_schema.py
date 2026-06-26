@@ -50,8 +50,10 @@ def test_partition_and_cluster_fields_have_expected_types():
     assert ea["CostInBillingCurrency"] == "BIGNUMERIC"
     assert ea["PayGPrice"] == "BIGNUMERIC"
     assert ea["IsAzureCreditEligible"] == "BOOL"
+    assert ea["InvoiceSectionId"] == "INTEGER"
 
     focus = {c["name"]: c["type"] for c in _load("azure-focus-1.2.json")}
     assert focus["BillingPeriodStart"] == "TIMESTAMP"
     assert focus["BilledCost"] == "BIGNUMERIC"
     assert focus["EffectiveCost"] == "BIGNUMERIC"
+    assert focus["x_InvoiceSectionId"] == "INTEGER"

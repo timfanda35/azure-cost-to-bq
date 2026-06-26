@@ -506,7 +506,7 @@
   {
     "name": "x_InvoiceSectionId",
     "mode": "NULLABLE",
-    "type": "STRING",
+    "type": "INTEGER",
     "description": "",
     "fields": []
   },
