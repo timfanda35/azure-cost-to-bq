@@ -47,10 +47,11 @@ def test_schema_entries_have_required_keys():
 def test_partition_and_cluster_fields_have_expected_types():
     ea = {c["name"]: c["type"] for c in _load("azure-ea-usage.json")}
     assert ea["BillingPeriodStartDate"] == "DATE"
-    assert ea["CostInBillingCurrency"] == "FLOAT"
+    assert ea["CostInBillingCurrency"] == "BIGNUMERIC"
+    assert ea["PayGPrice"] == "BIGNUMERIC"
     assert ea["IsAzureCreditEligible"] == "BOOL"
 
     focus = {c["name"]: c["type"] for c in _load("azure-focus-1.2.json")}
     assert focus["BillingPeriodStart"] == "TIMESTAMP"
-    assert focus["BilledCost"] == "FLOAT"
-    assert focus["EffectiveCost"] == "FLOAT"
+    assert focus["BilledCost"] == "BIGNUMERIC"
+    assert focus["EffectiveCost"] == "BIGNUMERIC"

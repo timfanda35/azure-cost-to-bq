@@ -114,14 +114,14 @@
   {
     "name": "EffectivePrice",
     "mode": "NULLABLE",
-    "type": "FLOAT",
+    "type": "BIGNUMERIC",
     "description": "",
     "fields": []
   },
   {
     "name": "CostInBillingCurrency",
     "mode": "NULLABLE",
-    "type": "FLOAT",
+    "type": "BIGNUMERIC",
     "description": "",
     "fields": []
   },
@@ -205,7 +205,7 @@
   {
     "name": "UnitPrice",
     "mode": "NULLABLE",
-    "type": "FLOAT",
+    "type": "BIGNUMERIC",
     "description": "",
     "fields": []
   },
@@ -345,7 +345,7 @@
   {
     "name": "PayGPrice",
     "mode": "NULLABLE",
-    "type": "FLOAT",
+    "type": "BIGNUMERIC",
     "description": "",
     "fields": []
   },

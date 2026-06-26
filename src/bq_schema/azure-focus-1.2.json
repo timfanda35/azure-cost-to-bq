@@ -2,7 +2,7 @@
   {
     "name": "BilledCost",
     "mode": "NULLABLE",
-    "type": "FLOAT",
+    "type": "BIGNUMERIC",
     "description": "",
     "fields": []
   },
@@ -170,21 +170,21 @@
   {
     "name": "ContractedCost",
     "mode": "NULLABLE",
-    "type": "FLOAT",
+    "type": "BIGNUMERIC",
     "description": "",
     "fields": []
   },
   {
     "name": "ContractedUnitPrice",
     "mode": "NULLABLE",
-    "type": "FLOAT",
+    "type": "BIGNUMERIC",
     "description": "",
     "fields": []
   },
   {
     "name": "EffectiveCost",
     "mode": "NULLABLE",
-    "type": "FLOAT",
+    "type": "BIGNUMERIC",
     "description": "",
     "fields": []
   },
@@ -205,14 +205,14 @@
   {
     "name": "ListCost",
     "mode": "NULLABLE",
-    "type": "FLOAT",
+    "type": "BIGNUMERIC",
     "description": "",
     "fields": []
   },
   {
     "name": "ListUnitPrice",
     "mode": "NULLABLE",
-    "type": "FLOAT",
+    "type": "BIGNUMERIC",
     "description": "",
     "fields": []
   },
@@ -401,14 +401,14 @@
   {
     "name": "x_BilledCostInUsd",
     "mode": "NULLABLE",
-    "type": "FLOAT",
+    "type": "BIGNUMERIC",
     "description": "",
     "fields": []
   },
   {
     "name": "x_BilledUnitPrice",
     "mode": "NULLABLE",
-    "type": "FLOAT",
+    "type": "BIGNUMERIC",
     "description": "",
     "fields": []
   },
@@ -457,7 +457,7 @@
   {
     "name": "x_ContractedCostInUsd",
     "mode": "NULLABLE",
-    "type": "FLOAT",
+    "type": "BIGNUMERIC",
     "description": "",
     "fields": []
   },
@@ -492,14 +492,14 @@
   {
     "name": "x_EffectiveCostInUsd",
     "mode": "NULLABLE",
-    "type": "FLOAT",
+    "type": "BIGNUMERIC",
     "description": "",
     "fields": []
   },
   {
     "name": "x_EffectiveUnitPrice",
     "mode": "NULLABLE",
-    "type": "FLOAT",
+    "type": "BIGNUMERIC",
     "description": "",
     "fields": []
   },
@@ -520,7 +520,7 @@
   {
     "name": "x_ListCostInUsd",
     "mode": "NULLABLE",
-    "type": "FLOAT",
+    "type": "BIGNUMERIC",
     "description": "",
     "fields": []
   },
