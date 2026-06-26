@@ -39,15 +39,15 @@ Azure Blob (Cost Management exports, Parquet)  →  GCS (staging)  →  BigQuery
 
 | `BILLING_SCHEMA` | Export env var | BQ table env var | Schema |
 |---|---|---|---|
-| `actual` | `EXPORT_NAME` | `BQ_TABLE` | EA cost-and-usage details |
-| `amortized` | `EXPORT_NAME` | `BQ_TABLE` | EA cost-and-usage details (same columns as actual) |
-| `focus` | `EXPORT_NAME` | `BQ_TABLE` | FOCUS 1.2-preview |
+| `actual` | `EXPORT_NAME` | `BQ_TABLE_ID` | EA cost-and-usage details |
+| `amortized` | `EXPORT_NAME` | `BQ_TABLE_ID` | EA cost-and-usage details (same columns as actual) |
+| `focus` | `EXPORT_NAME` | `BQ_TABLE_ID` | FOCUS 1.2-preview |
 
 **Flow:** `POST /run` or `run_job.py` → `src/pipeline.py::run_pipeline(partition)` → for each billing period: `AzureBlobSource.latest_run()` → `AzureBlobSource.stream()` → `upload_to_gcs()` → `run_load_job(partition_date=...)`. `BILLING_SCHEMA` maps to the BigQuery schema/clustering via `SCHEMA_MAP` in `src/bigquery.py`.
 
 **Key behaviors:**
 - By default each run syncs the **current month + previous month** (`PREVIOUS_MONTHS`, default 1). Re-syncing the previous month each day absorbs Azure's restatements (Azure re-states open-month costs for ~5 days after month close) via partition overwrite.
-- `EXPORT_NAME`, `BQ_TABLE`, and `BILLING_SCHEMA` are all required; `BILLING_SCHEMA` must be one of `actual`/`amortized`/`focus` (see `config.BILLING_SCHEMAS`).
+- `EXPORT_NAME`, `BQ_TABLE_ID`, and `BILLING_SCHEMA` are all required; `BILLING_SCHEMA` must be one of `actual`/`amortized`/`focus` (see `config.BILLING_SCHEMAS`).
 - Ad-hoc backfill: `--partition YYYY-MM` (or `PARTITION` env, or `POST {partition}`) processes that single billing period.
 - **Manifest is the readiness gate** (`src/sources/azure_blob.py`): only run folders containing a `manifest.json`/`_manifest.json` are ingested; an in-progress run (parquet but no manifest) is ignored. The manifest's `blobs[]` is the authoritative file list — never glob. When multiple runs exist for a month (`CreateNewReport` mode), the latest by `runInfo.submittedTime` wins. No manifest under the month folder → `period.skipped`, retried next run.
 - Blob layout read: `{AZURE_ROOT_FOLDER_PATH}/{exportName}/{YYYYMMDD-YYYYMMDD}/{runId}/part*.parquet` (+ manifest). The `YYYYMMDD-YYYYMMDD` folder is the full month range.

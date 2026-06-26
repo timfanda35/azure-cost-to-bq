@@ -13,6 +13,28 @@ logger = logging.getLogger(__name__)
 _MANIFEST_NAMES = ("manifest.json", "_manifest.json")
 
 
+class _DownloaderStream:
+    """Adapt an Azure ``StorageStreamDownloader`` to a file-like object.
+
+    GCS's ``upload_from_file`` requires a stream exposing both ``read`` and
+    ``tell``. The downloader supports ``read`` but not ``tell``, so we track the
+    byte offset ourselves and delegate reads to the downloader (no buffering,
+    so the upload stays streaming rather than loading the blob into memory).
+    """
+
+    def __init__(self, downloader):
+        self._downloader = downloader
+        self._pos = 0
+
+    def read(self, size: int = -1) -> bytes:
+        data = self._downloader.read(size)
+        self._pos += len(data)
+        return data
+
+    def tell(self) -> int:
+        return self._pos
+
+
 def _join(*parts: str) -> str:
     return "/".join(p.strip("/") for p in parts if p)
 
@@ -167,4 +189,4 @@ class AzureBlobSource:
 
     def stream(self, blob_name: str):
         """Return a file-like stream for a blob (suitable for GCS upload)."""
-        return self._cc.download_blob(blob_name)
+        return _DownloaderStream(self._cc.download_blob(blob_name))
