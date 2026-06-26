@@ -51,7 +51,7 @@
   {
     "name": "Date",
     "mode": "NULLABLE",
-    "type": "DATE",
+    "type": "TIMESTAMP",
     "description": "",
     "fields": []
   },
@@ -296,14 +296,14 @@
   {
     "name": "BillingPeriodStartDate",
     "mode": "NULLABLE",
-    "type": "DATE",
+    "type": "TIMESTAMP",
     "description": "",
     "fields": []
   },
   {
     "name": "BillingPeriodEndDate",
     "mode": "NULLABLE",
-    "type": "DATE",
+    "type": "TIMESTAMP",
     "description": "",
     "fields": []
   },

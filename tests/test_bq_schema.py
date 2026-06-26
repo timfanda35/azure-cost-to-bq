@@ -46,7 +46,7 @@ def test_schema_entries_have_required_keys():
 
 def test_partition_and_cluster_fields_have_expected_types():
     ea = {c["name"]: c["type"] for c in _load("azure-ea-usage.json")}
-    assert ea["BillingPeriodStartDate"] == "DATE"
+    assert ea["BillingPeriodStartDate"] == "TIMESTAMP"
     assert ea["CostInBillingCurrency"] == "BIGNUMERIC"
     assert ea["PayGPrice"] == "BIGNUMERIC"
     assert ea["IsAzureCreditEligible"] == "BOOL"
