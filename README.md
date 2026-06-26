@@ -70,7 +70,6 @@ Copy `.env.example` to `.env` and fill it in. One job syncs one report type. Req
 | `BQ_PROJECT_ID` | Yes | — | Project holding the dataset/tables |
 | `BQ_DATASET_ID` | Yes | — | Target dataset |
 | `BQ_TABLE_ID` | Yes | — | Destination table for this report (e.g. `azure_cost_focus`) |
-| `BQ_ENFORCE_SCHEMA` | No | `false` | Apply explicit JSON schema from `src/bq_schema/` instead of parquet's embedded schema |
 | `BQ_CMEK_KEY_NAME` | No | — | Cloud KMS key resource name for the load job |
 
 **Run window**
@@ -87,7 +86,7 @@ Copy `.env.example` to `.env` and fill it in. One job syncs one report type. Req
 | `LOG_LEVEL` | No | `INFO` | Logging level (`DEBUG`/`INFO`/`WARNING`/`ERROR`/`CRITICAL`) |
 | `PORT` | No | `8080` | HTTP port when running `main.py` (server mode) |
 
-`BQ_ENFORCE_SCHEMA` accepts `1`/`true`/`yes`/`on` (case-insensitive). `PARTITION` is overridden by the `--partition` CLI equivalent.
+`PARTITION` is overridden by the `--partition` CLI equivalent.
 
 ## Run locally
 
@@ -139,7 +138,7 @@ Store the SP secret in Secret Manager; never bake credentials into the image.
 
 ## Schema handling
 
-Parquet is self-describing, so by default BigQuery loads use the **files' embedded schema** — robust against the exact physical types Azure emits. Explicit schemas for both datasets live in `src/bq_schema/` (authored from the Microsoft dataset-schema docs) and are applied only when `BQ_ENFORCE_SCHEMA=true`. Verify a real export's manifest `dataVersion` and columns before enabling enforcement.
+BigQuery loads always apply the **explicit JSON schema** for the dataset, so column types are deterministic regardless of the physical types a given export emits. The schemas for both datasets live in `src/bq_schema/` (authored from the Microsoft dataset-schema docs and verified against real exports). When a new export's manifest `dataVersion` or columns change, update the matching schema file in `src/bq_schema/`.
 
 ## Notes & caveats
 

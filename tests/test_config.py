@@ -24,7 +24,7 @@ def _common(extra=None):
 def _setenv(monkeypatch, env):
     # clear any report/auth env that could leak from the real environment
     for k in (
-        "PREVIOUS_MONTHS", "BQ_ENFORCE_SCHEMA", "AZURE_BLOB_ENDPOINT_URL",
+        "PREVIOUS_MONTHS", "AZURE_BLOB_ENDPOINT_URL",
         "AZURE_STORAGE_CONNECTION_STRING", "AZURE_STORAGE_SAS_TOKEN",
         "EXPORT_NAME", "BQ_TABLE_ID", "BILLING_SCHEMA",
     ):

@@ -51,12 +51,12 @@ Azure Blob (Cost Management exports, Parquet)  →  GCS (staging)  →  BigQuery
 - Ad-hoc backfill: `--partition YYYY-MM` (or `PARTITION` env, or `POST {partition}`) processes that single billing period.
 - **Manifest is the readiness gate** (`src/sources/azure_blob.py`): only run folders containing a `manifest.json`/`_manifest.json` are ingested; an in-progress run (parquet but no manifest) is ignored. The manifest's `blobs[]` is the authoritative file list — never glob. When multiple runs exist for a month (`CreateNewReport` mode), the latest by `runInfo.submittedTime` wins. No manifest under the month folder → `period.skipped`, retried next run.
 - Blob layout read: `{AZURE_ROOT_FOLDER_PATH}/{exportName}/{YYYYMMDD-YYYYMMDD}/{runId}/part*.parquet` (+ manifest). The `YYYYMMDD-YYYYMMDD` folder is the full month range.
-- BigQuery loads target a month partition decorator (`table$YYYYMM`) with `WRITE_TRUNCATE`, MONTH partitioning, and per-schema clustering. **Parquet is loaded with its embedded schema by default** (most robust — we don't control the export's exact physical types). Set `BQ_ENFORCE_SCHEMA=true` to instead apply the explicit JSON schema in `src/bq_schema/` once verified against a real export.
+- BigQuery loads target a month partition decorator (`table$YYYYMM`) with `WRITE_TRUNCATE`, MONTH partitioning, and per-schema clustering. **Loads always apply the explicit JSON schema in `src/bq_schema/`** (parquet source format) so column types are deterministic regardless of the physical types a given export emits.
 - GCS staging path includes a `run_id` timestamp: `{GCS_DESTINATION_PREFIX}/{exportName}/data/{run_id}/month=YYYY-MM/`.
 - Blob auth (`Config.blob_auth_mode`): connection string > SAS token > service principal (`ClientSecretCredential`). `AZURE_BLOB_ENDPOINT_URL` overrides the blob client URL for private endpoints (Azure analog of aws `S3_ENDPOINT_URL`).
 - `BQ_CMEK_KEY_NAME` (optional) attaches a Cloud KMS key to the load job.
 
-**Schema files** (`src/bq_schema/azure-ea-usage.json` 57 cols / `azure-focus-1.2.json` 105 cols) are authored from the Microsoft dataset-schema docs. They're used only when `BQ_ENFORCE_SCHEMA=true`; otherwise they serve as reference + a freeze test (`tests/test_bq_schema.py`). Verify against a real export's manifest `dataVersion` before enforcing.
+**Schema files** (`src/bq_schema/azure-ea-usage.json` 57 cols / `azure-focus-1.2.json` 105 cols) are authored from the Microsoft dataset-schema docs and applied to every load. They're also covered by a freeze test (`tests/test_bq_schema.py`). When a real export's manifest `dataVersion` or columns change, update the matching schema file.
 
 ## Logging
 

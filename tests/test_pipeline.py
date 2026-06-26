@@ -24,7 +24,7 @@ def _env():
 
 def _setenv(monkeypatch, env):
     for k in (
-        "PREVIOUS_MONTHS", "BQ_ENFORCE_SCHEMA",
+        "PREVIOUS_MONTHS",
         "EXPORT_NAME", "BQ_TABLE_ID", "BILLING_SCHEMA",
         "AZURE_STORAGE_CONNECTION_STRING", "AZURE_STORAGE_SAS_TOKEN",
     ):

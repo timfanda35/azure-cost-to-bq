@@ -107,7 +107,7 @@
   {
     "name": "Quantity",
     "mode": "NULLABLE",
-    "type": "FLOAT",
+    "type": "BIGNUMERIC",
     "description": "",
     "fields": []
   },
@@ -324,7 +324,7 @@
   {
     "name": "InvoiceSectionId",
     "mode": "NULLABLE",
-    "type": "STRING",
+    "type": "INTEGER",
     "description": "",
     "fields": []
   },

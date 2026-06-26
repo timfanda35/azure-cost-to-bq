@@ -27,7 +27,7 @@ def test_schema_map_keys_match_billing_schemas():
     assert set(BILLING_SCHEMAS) == set(SCHEMA_MAP)
 
 
-def test_load_job_defaults_to_embedded_schema():
+def test_load_job_applies_explicit_schema():
     job = _mock_job()
     bq_client = MagicMock()
     bq_client.load_table_from_uri.return_value = job
@@ -51,27 +51,9 @@ def test_load_job_defaults_to_embedded_schema():
     assert jc.time_partitioning.type_ == bigquery.TimePartitioningType.MONTH
     assert jc.time_partitioning.field == "BillingPeriodStartDate"
     assert jc.clustering_fields == ["Date", "SubscriptionName"]
-    # embedded schema by default → no explicit schema loaded
-    assert jc.schema is None or jc.schema == []
-    bq_client.schema_from_json.assert_not_called()
+    # explicit JSON schema is always applied
+    bq_client.schema_from_json.assert_called_once_with(EA_USAGE_SCHEMA.schema_path)
     job.result.assert_called_once_with(timeout=3300)
-
-
-def test_load_job_enforce_schema_loads_json():
-    job = _mock_job()
-    bq_client = MagicMock()
-    bq_client.load_table_from_uri.return_value = job
-
-    with patch("src.bigquery.bigquery.Client", return_value=bq_client):
-        run_load_job(
-            gcs_uri="gs://bucket/path/*.parquet",
-            project_id="my-project",
-            dataset_id="billing",
-            table_id="azure_cost_focus",
-            schema_config=FOCUS12_SCHEMA,
-            enforce_schema=True,
-        )
-    bq_client.schema_from_json.assert_called_once_with(FOCUS12_SCHEMA.schema_path)
 
 
 def test_load_job_partition_decorator():

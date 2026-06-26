@@ -128,7 +128,7 @@
   {
     "name": "CommitmentDiscountQuantity",
     "mode": "NULLABLE",
-    "type": "FLOAT",
+    "type": "BIGNUMERIC",
     "description": "",
     "fields": []
   },
@@ -156,7 +156,7 @@
   {
     "name": "ConsumedQuantity",
     "mode": "NULLABLE",
-    "type": "FLOAT",
+    "type": "BIGNUMERIC",
     "description": "",
     "fields": []
   },
@@ -233,7 +233,7 @@
   {
     "name": "PricingQuantity",
     "mode": "NULLABLE",
-    "type": "FLOAT",
+    "type": "BIGNUMERIC",
     "description": "",
     "fields": []
   },
@@ -429,7 +429,7 @@
   {
     "name": "x_BillingExchangeRate",
     "mode": "NULLABLE",
-    "type": "FLOAT",
+    "type": "STRING",
     "description": "",
     "fields": []
   },
@@ -504,6 +504,13 @@
     "fields": []
   },
   {
+    "name": "x_InvoiceIssuerId",
+    "mode": "NULLABLE",
+    "type": "STRING",
+    "description": "",
+    "fields": []
+  },
+  {
     "name": "x_InvoiceSectionId",
     "mode": "NULLABLE",
     "type": "STRING",
@@ -527,28 +534,21 @@
   {
     "name": "x_PartnerCreditApplied",
     "mode": "NULLABLE",
-    "type": "BOOL",
+    "type": "STRING",
     "description": "",
     "fields": []
   },
   {
     "name": "x_PartnerCreditRate",
     "mode": "NULLABLE",
-    "type": "FLOAT",
+    "type": "BIGNUMERIC",
     "description": "",
     "fields": []
   },
   {
     "name": "x_PricingBlockSize",
     "mode": "NULLABLE",
-    "type": "FLOAT",
-    "description": "",
-    "fields": []
-  },
-  {
-    "name": "x_PricingCurrency",
-    "mode": "NULLABLE",
-    "type": "STRING",
+    "type": "BIGNUMERIC",
     "description": "",
     "fields": []
   },
@@ -665,13 +665,6 @@
     "fields": []
   },
   {
-    "name": "x_SkuMeterName",
-    "mode": "NULLABLE",
-    "type": "STRING",
-    "description": "",
-    "fields": []
-  },
-  {
     "name": "x_SkuMeterSubcategory",
     "mode": "NULLABLE",
     "type": "STRING",
@@ -722,6 +715,13 @@
   },
   {
     "name": "x_SkuServiceFamily",
+    "mode": "NULLABLE",
+    "type": "STRING",
+    "description": "",
+    "fields": []
+  },
+    {
+    "name": "x_SkuTerm",
     "mode": "NULLABLE",
     "type": "STRING",
     "description": "",

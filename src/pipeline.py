@@ -78,7 +78,6 @@ def run_pipeline(partition: str | None = None) -> dict:
         "run_id": run_id,
         "report": cfg.billing_schema,
         "periods": [p.strftime("%Y-%m") for p in periods],
-        "enforce_schema": cfg.bq_enforce_schema,
     })
 
     periods_loaded = 0
@@ -173,7 +172,7 @@ def _sync_one(cfg, source, schema_config, month: date, run_id: str) -> dict:
         wildcard, cfg.bq_project_id, cfg.bq_dataset_id, cfg.bq_table_id,
         partition_date=month, schema_config=schema_config,
         run_id=run_id, export_name=cfg.export_name, partition_label=partition_str,
-        kms_key_name=cfg.bq_cmek_key_name, enforce_schema=cfg.bq_enforce_schema,
+        kms_key_name=cfg.bq_cmek_key_name,
     )
 
     logger.info("period.complete", extra={
