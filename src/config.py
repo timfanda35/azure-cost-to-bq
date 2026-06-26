@@ -56,7 +56,7 @@ class Config:
 
         # ── Report export (one export = one job) ─────────────────────────
         self.export_name = self._require("EXPORT_NAME")
-        self.bq_table_id = self._require("BQ_TABLE")
+        self.bq_table_id = self._require("BQ_TABLE_ID")
         self.billing_schema = self._require("BILLING_SCHEMA").strip()
         if self.billing_schema not in BILLING_SCHEMAS:
             raise ValueError(

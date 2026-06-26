@@ -13,7 +13,7 @@ def _common(extra=None):
         "BQ_PROJECT_ID": "my-project",
         "BQ_DATASET_ID": "billing",
         "EXPORT_NAME": "focus-export",
-        "BQ_TABLE": "azure_cost_focus",
+        "BQ_TABLE_ID": "azure_cost_focus",
         "BILLING_SCHEMA": "focus",
     }
     if extra:
@@ -26,7 +26,7 @@ def _setenv(monkeypatch, env):
     for k in (
         "PREVIOUS_MONTHS", "BQ_ENFORCE_SCHEMA", "AZURE_BLOB_ENDPOINT_URL",
         "AZURE_STORAGE_CONNECTION_STRING", "AZURE_STORAGE_SAS_TOKEN",
-        "EXPORT_NAME", "BQ_TABLE", "BILLING_SCHEMA",
+        "EXPORT_NAME", "BQ_TABLE_ID", "BILLING_SCHEMA",
     ):
         monkeypatch.delenv(k, raising=False)
     for k, v in env.items():
@@ -46,7 +46,7 @@ def test_config_loads_single_report(monkeypatch):
 def test_root_folder_and_table(monkeypatch):
     _setenv(monkeypatch, _common({
         "EXPORT_NAME": "act-export",
-        "BQ_TABLE": "azure_cost_actual",
+        "BQ_TABLE_ID": "azure_cost_actual",
         "BILLING_SCHEMA": "actual",
         "AZURE_ROOT_FOLDER_PATH": "azure-cost/ea",
     }))
@@ -66,9 +66,9 @@ def test_missing_export_name_raises(monkeypatch):
 
 def test_missing_bq_table_raises(monkeypatch):
     env = _common()
-    env.pop("BQ_TABLE")
+    env.pop("BQ_TABLE_ID")
     _setenv(monkeypatch, env)
-    with pytest.raises(ValueError, match="BQ_TABLE"):
+    with pytest.raises(ValueError, match="BQ_TABLE_ID"):
         cfg.Config()
 
 

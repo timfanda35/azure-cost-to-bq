@@ -26,7 +26,7 @@ The team creates the exports manually in the Azure portal at the **EA enrollment
 
 ## Configuration
 
-Copy `.env.example` to `.env` and fill it in. One job syncs one report type. Required: `AZURE_STORAGE_ACCOUNT_URL`, `AZURE_STORAGE_CONTAINER`, blob auth (SP/SAS/connection string), `EXPORT_NAME`, `BILLING_SCHEMA`, `BQ_TABLE`, `GCS_BUCKET`, `BQ_PROJECT_ID`, `BQ_DATASET_ID`. See the full reference below and `CLAUDE.md` for behavior details.
+Copy `.env.example` to `.env` and fill it in. One job syncs one report type. Required: `AZURE_STORAGE_ACCOUNT_URL`, `AZURE_STORAGE_CONTAINER`, blob auth (SP/SAS/connection string), `EXPORT_NAME`, `BILLING_SCHEMA`, `BQ_TABLE_ID`, `GCS_BUCKET`, `BQ_PROJECT_ID`, `BQ_DATASET_ID`. See the full reference below and `CLAUDE.md` for behavior details.
 
 ## Environment Variables
 
@@ -69,7 +69,7 @@ Copy `.env.example` to `.env` and fill it in. One job syncs one report type. Req
 |---|---|---|---|
 | `BQ_PROJECT_ID` | Yes | — | Project holding the dataset/tables |
 | `BQ_DATASET_ID` | Yes | — | Target dataset |
-| `BQ_TABLE` | Yes | — | Destination table for this report (e.g. `azure_cost_focus`) |
+| `BQ_TABLE_ID` | Yes | — | Destination table for this report (e.g. `azure_cost_focus`) |
 | `BQ_ENFORCE_SCHEMA` | No | `false` | Apply explicit JSON schema from `src/bq_schema/` instead of parquet's embedded schema |
 | `BQ_CMEK_KEY_NAME` | No | — | Cloud KMS key resource name for the load job |
 
@@ -124,7 +124,7 @@ IMAGE=ghcr.io/<owner>/azure-cost-to-bq:latest
 gcloud run jobs deploy azure-cost-to-bq \
   --image "$IMAGE" \
   --service-account "$SERVICE_ACCOUNT" \
-  --set-env-vars "AZURE_STORAGE_ACCOUNT_URL=...,AZURE_STORAGE_CONTAINER=exports,EXPORT_NAME=...,BILLING_SCHEMA=focus,BQ_TABLE=azure_cost_focus,GCS_BUCKET=...,BQ_PROJECT_ID=...,BQ_DATASET_ID=billing" \
+  --set-env-vars "AZURE_STORAGE_ACCOUNT_URL=...,AZURE_STORAGE_CONTAINER=exports,EXPORT_NAME=...,BILLING_SCHEMA=focus,BQ_TABLE_ID=azure_cost_focus,GCS_BUCKET=...,BQ_PROJECT_ID=...,BQ_DATASET_ID=billing" \
   --set-secrets "AZURE_CLIENT_SECRET=azure-cost-sp-secret:latest" \
   --set-env-vars "AZURE_TENANT_ID=...,AZURE_CLIENT_ID=..."
 

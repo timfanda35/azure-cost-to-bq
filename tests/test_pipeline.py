@@ -17,7 +17,7 @@ def _env():
         "BQ_PROJECT_ID": "my-project",
         "BQ_DATASET_ID": "billing",
         "EXPORT_NAME": "focus-export",
-        "BQ_TABLE": "azure_cost_focus",
+        "BQ_TABLE_ID": "azure_cost_focus",
         "BILLING_SCHEMA": "focus",
     }
 
@@ -25,7 +25,7 @@ def _env():
 def _setenv(monkeypatch, env):
     for k in (
         "PREVIOUS_MONTHS", "BQ_ENFORCE_SCHEMA",
-        "EXPORT_NAME", "BQ_TABLE", "BILLING_SCHEMA",
+        "EXPORT_NAME", "BQ_TABLE_ID", "BILLING_SCHEMA",
         "AZURE_STORAGE_CONNECTION_STRING", "AZURE_STORAGE_SAS_TOKEN",
     ):
         monkeypatch.delenv(k, raising=False)
