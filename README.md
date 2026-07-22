@@ -99,6 +99,9 @@ python3 run_job.py
 # Ad-hoc: a specific billing period
 python3 run_job.py --partition 2026-05
 
+# Backfill: a range of billing periods, one run_pipeline call per month
+python3 backfill.py --start 2026-01 --end 2026-05
+
 # As an HTTP server
 python3 main.py
 curl -X POST localhost:8080/run -H 'content-type: application/json' \
