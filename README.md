@@ -88,6 +88,36 @@ Copy `.env.example` to `.env` and fill it in. One job syncs one report type. Req
 
 `PARTITION` is overridden by the `--partition` CLI equivalent.
 
+**Merge sources** (`merge_sources.py` only — ad-hoc, for an EA export migration that doesn't
+land on a billing-period boundary)
+
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `SOURCE_A_AZURE_STORAGE_ACCOUNT_URL` / `SOURCE_B_AZURE_STORAGE_ACCOUNT_URL` | Yes | — | Per-source storage account base URL |
+| `SOURCE_A_AZURE_STORAGE_CONTAINER` / `SOURCE_B_AZURE_STORAGE_CONTAINER` | Yes | — | Per-source container |
+| `SOURCE_A_AZURE_ROOT_FOLDER_PATH` / `SOURCE_B_AZURE_ROOT_FOLDER_PATH` | No | `""` | Per-source path prefix |
+| `SOURCE_A_EXPORT_NAME` / `SOURCE_B_EXPORT_NAME` | Yes | — | Per-source export name |
+| `SOURCE_A_AZURE_BLOB_ENDPOINT_URL` / `SOURCE_B_...` | No | (account URL) | Per-source private-link override |
+| `SOURCE_A_AZURE_STORAGE_CONNECTION_STRING` / `SOURCE_B_...` | One-of | — | Per-source auth, priority 1 |
+| `SOURCE_A_AZURE_STORAGE_SAS_TOKEN` / `SOURCE_B_...` | One-of | — | Per-source auth, priority 2 |
+| `SOURCE_A_AZURE_TENANT_ID`+`CLIENT_ID`+`CLIENT_SECRET` / `SOURCE_B_...` | One-of | — | Per-source auth, priority 3 |
+
+The BigQuery/GCS destination (`GCS_BUCKET`, `GCS_DESTINATION_PREFIX`, `BQ_PROJECT_ID`,
+`BQ_DATASET_ID`, `BQ_TABLE_ID`, `BQ_CMEK_KEY_NAME`, `BILLING_SCHEMA`) is shared with the
+normal job's env vars above — no `SOURCE_A_`/`SOURCE_B_` prefix. Both sources' Parquet
+files are staged together and loaded in a single job so the partition ends up with both
+sources' rows instead of the second load truncating the first. This does **not**
+deduplicate rows: it assumes the two sources' date coverage for the billing period
+doesn't overlap. Before trusting the merged partition, confirm both sources' `data_version`
+(logged in `blob.run.selected`) match — the load applies one explicit schema to both.
+
+**Important:** if the merged month is still inside the daily job's sync window
+(current month, or one of the `PREVIOUS_MONTHS` previous months), the next scheduled
+run will `WRITE_TRUNCATE` that partition with the single configured export's data
+and silently drop the other source's rows. Either re-run `merge_sources.py` after
+each daily sync until the month ages out of the window, or set `PREVIOUS_MONTHS`
+low enough (e.g. `0`) that the daily job no longer touches that month once it's closed.
+
 ## Run locally
 
 ```bash
@@ -101,6 +131,9 @@ python3 run_job.py --partition 2026-05
 
 # Backfill: a range of billing periods, one run_pipeline call per month
 python3 backfill.py --start 2026-01 --end 2026-05
+
+# Merge two export sources (e.g. an EA export migration mid-month) into one partition
+python3 merge_sources.py --partition 2026-06
 
 # As an HTTP server
 python3 main.py

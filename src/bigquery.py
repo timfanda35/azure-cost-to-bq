@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 
 def run_load_job(
-    gcs_uri: str,
+    gcs_uri: str | list[str],
     project_id: str,
     dataset_id: str,
     table_id: str,
@@ -51,6 +51,9 @@ def run_load_job(
     kms_key_name: str | None = None,
 ) -> None:
     """Load parquet file(s) from GCS into BigQuery (WRITE_TRUNCATE).
+
+    ``gcs_uri`` may be a single wildcard URI or a list of them (e.g. to combine
+    multiple export sources into one partition load).
 
     The load always applies the explicit JSON schema in
     ``schema_config.schema_path`` so column types are deterministic regardless of
