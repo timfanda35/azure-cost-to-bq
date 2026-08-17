@@ -49,8 +49,9 @@ def run_load_job(
     export_name: str = "",
     partition_label: str = "",
     kms_key_name: str | None = None,
+    write_disposition: str = bigquery.WriteDisposition.WRITE_TRUNCATE,
 ) -> None:
-    """Load parquet file(s) from GCS into BigQuery (WRITE_TRUNCATE).
+    """Load parquet file(s) from GCS into BigQuery.
 
     ``gcs_uri`` may be a single wildcard URI or a list of them (e.g. to combine
     multiple export sources into one partition load).
@@ -60,9 +61,11 @@ def run_load_job(
     the physical types a given export emits.
 
     When ``partition_date`` is given the load targets that specific month
-    partition using a decorator (``table$YYYYMM``), replacing only that partition
-    rather than the entire table. The partition and clustering fields must exist
-    in the parquet data.
+    partition using a decorator (``table$YYYYMM``). By default (``write_disposition``
+    is ``WRITE_TRUNCATE``) this replaces only that partition rather than the entire
+    table; pass ``WRITE_APPEND`` to add rows to the partition instead (e.g. to land a
+    second source into a partition another job already loaded). The partition and
+    clustering fields must exist in the parquet data.
     """
     client = bigquery.Client(project=project_id)
     if partition_date:
@@ -72,7 +75,7 @@ def run_load_job(
 
     job_config = bigquery.LoadJobConfig(
         source_format=bigquery.SourceFormat.PARQUET,
-        write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+        write_disposition=write_disposition,
         time_partitioning=bigquery.TimePartitioning(
             type_=bigquery.TimePartitioningType.MONTH,
             field=schema_config.partition_field,
@@ -94,6 +97,7 @@ def run_load_job(
         "job_id": job.job_id,
         "gcs_uri": gcs_uri,
         "bq_table": table_ref,
+        "write_disposition": write_disposition,
     })
 
     job.result(timeout=3300)  # blocks until complete
