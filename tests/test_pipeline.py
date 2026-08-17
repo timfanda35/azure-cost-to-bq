@@ -2,6 +2,8 @@ import logging
 from datetime import date, datetime, timezone
 from unittest.mock import MagicMock, patch
 
+from google.cloud import bigquery
+
 from src.pipeline import run_pipeline, billing_periods
 from src.sources.base import ExportRun
 
@@ -115,6 +117,34 @@ def test_pipeline_partition_single_month(monkeypatch):
     assert result["periods"] == ["2026-04"]
     assert mock_bq.call_count == 1
     assert mock_bq.call_args.kwargs["partition_date"] == date(2026, 4, 1)
+
+
+def test_pipeline_defaults_to_write_truncate(monkeypatch):
+    _setenv(monkeypatch, _env())
+    source = MagicMock()
+    source.latest_run.return_value = _run()
+    source.stream.return_value = MagicMock()
+
+    with patch("src.pipeline._build_source", return_value=source), \
+         patch("src.pipeline.upload_to_gcs", side_effect=lambda s, b, d, **k: "gs://x/y"), \
+         patch("src.pipeline.run_load_job") as mock_bq:
+        run_pipeline(partition="2026-04")
+
+    assert mock_bq.call_args.kwargs["write_disposition"] == bigquery.WriteDisposition.WRITE_TRUNCATE
+
+
+def test_pipeline_forwards_write_append(monkeypatch):
+    _setenv(monkeypatch, _env())
+    source = MagicMock()
+    source.latest_run.return_value = _run()
+    source.stream.return_value = MagicMock()
+
+    with patch("src.pipeline._build_source", return_value=source), \
+         patch("src.pipeline.upload_to_gcs", side_effect=lambda s, b, d, **k: "gs://x/y"), \
+         patch("src.pipeline.run_load_job") as mock_bq:
+        run_pipeline(partition="2026-04", write_disposition=bigquery.WriteDisposition.WRITE_APPEND)
+
+    assert mock_bq.call_args.kwargs["write_disposition"] == bigquery.WriteDisposition.WRITE_APPEND
 
 
 def test_pipeline_uploads_each_manifest_blob(monkeypatch):

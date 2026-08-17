@@ -128,6 +128,44 @@ def test_load_job_no_cmek_by_default():
     assert kwargs["job_config"].destination_encryption_configuration is None
 
 
+def test_load_job_write_append_when_requested():
+    job = _mock_job()
+    bq_client = MagicMock()
+    bq_client.load_table_from_uri.return_value = job
+
+    with patch("src.bigquery.bigquery.Client", return_value=bq_client):
+        run_load_job(
+            gcs_uri="gs://bucket/path/*.parquet",
+            project_id="my-project",
+            dataset_id="billing",
+            table_id="azure_cost_actual",
+            schema_config=EA_USAGE_SCHEMA,
+            write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
+        )
+    _, kwargs = bq_client.load_table_from_uri.call_args
+    assert kwargs["job_config"].write_disposition == bigquery.WriteDisposition.WRITE_APPEND
+
+
+def test_load_job_logs_write_disposition(caplog):
+    job = _mock_job()
+    bq_client = MagicMock()
+    bq_client.load_table_from_uri.return_value = job
+
+    with caplog.at_level(logging.INFO, logger="src.bigquery"), \
+         patch("src.bigquery.bigquery.Client", return_value=bq_client):
+        run_load_job(
+            gcs_uri="gs://bucket/path/*.parquet",
+            project_id="my-project",
+            dataset_id="billing",
+            table_id="azure_cost_actual",
+            schema_config=EA_USAGE_SCHEMA,
+            write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
+        )
+    submitted = [r for r in caplog.records if getattr(r, "log_event", None) == "bq.job.submitted"]
+    assert len(submitted) == 1
+    assert submitted[0].write_disposition == bigquery.WriteDisposition.WRITE_APPEND
+
+
 def test_load_job_raises_and_logs_on_error(caplog):
     job = _mock_job(error="Bad schema")
     bq_client = MagicMock()

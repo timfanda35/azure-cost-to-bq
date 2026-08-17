@@ -118,6 +118,24 @@ and silently drop the other source's rows. Either re-run `merge_sources.py` afte
 each daily sync until the month ages out of the window, or set `PREVIOUS_MONTHS`
 low enough (e.g. `0`) that the daily job no longer touches that month once it's closed.
 
+**Append source** (`append.py` — a simpler alternative to `merge_sources.py` for the same
+migration scenario, run as two separate steps instead of one combined load)
+
+Uses the same env vars as the normal job — no `SOURCE_A_`/`SOURCE_B_` prefix. Run
+`backfill.py`/`run_job.py` first with source A's env vars (normal `WRITE_TRUNCATE`
+load), then run `append.py --partition YYYY-MM` with the env vars pointed at source B:
+it loads into the same partition with `WRITE_APPEND` instead of truncating, so B's rows
+land alongside A's rather than replacing them. Like merge, this does **not** deduplicate
+rows and assumes the two sources' date coverage doesn't overlap.
+
+**Important:** the same sync-window caveat as merge applies — if the appended month is
+still inside the daily job's sync window, the next scheduled run will `WRITE_TRUNCATE`
+that partition and drop the appended source's rows. Re-run `append.py` after each daily
+sync, or lower `PREVIOUS_MONTHS`, until the month ages out of the window. Unlike merge,
+`WRITE_APPEND` is not idempotent: re-running `append.py` for a month *without* an
+intervening truncate (e.g. two manual runs in the same day) duplicates source B's rows
+for that partition.
+
 ## Run locally
 
 ```bash
@@ -134,6 +152,9 @@ python3 backfill.py --start 2026-01 --end 2026-05
 
 # Merge two export sources (e.g. an EA export migration mid-month) into one partition
 python3 merge_sources.py --partition 2026-06
+
+# Append a second source into a partition another job already loaded (WRITE_APPEND)
+python3 append.py --partition 2026-06
 
 # As an HTTP server
 python3 main.py

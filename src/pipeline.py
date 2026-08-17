@@ -2,6 +2,8 @@ import logging
 import time
 from datetime import date, datetime, timezone
 
+from google.cloud import bigquery
+
 from src.config import Config
 from src.sources.azure_blob import AzureBlobSource
 from src.gcs import upload_to_gcs
@@ -57,7 +59,10 @@ def _build_source(cfg: Config) -> AzureBlobSource:
     )
 
 
-def run_pipeline(partition: str | None = None) -> dict:
+def run_pipeline(
+    partition: str | None = None,
+    write_disposition: str = bigquery.WriteDisposition.WRITE_TRUNCATE,
+) -> dict:
     cfg = Config()
     source = _build_source(cfg)
 
@@ -85,7 +90,7 @@ def run_pipeline(partition: str | None = None) -> dict:
     results = []
 
     for month in periods:
-        result = _sync_one(cfg, source, schema_config, month, run_id)
+        result = _sync_one(cfg, source, schema_config, month, run_id, write_disposition)
         results.append(result)
         if result["skipped"]:
             periods_skipped += 1
@@ -111,7 +116,10 @@ def run_pipeline(partition: str | None = None) -> dict:
     }
 
 
-def _sync_one(cfg, source, schema_config, month: date, run_id: str) -> dict:
+def _sync_one(
+    cfg, source, schema_config, month: date, run_id: str,
+    write_disposition: str = bigquery.WriteDisposition.WRITE_TRUNCATE,
+) -> dict:
     partition_str = month.strftime("%Y-%m")
     base_result = {
         "report": cfg.billing_schema,
@@ -172,7 +180,7 @@ def _sync_one(cfg, source, schema_config, month: date, run_id: str) -> dict:
         wildcard, cfg.bq_project_id, cfg.bq_dataset_id, cfg.bq_table_id,
         partition_date=month, schema_config=schema_config,
         run_id=run_id, export_name=cfg.export_name, partition_label=partition_str,
-        kms_key_name=cfg.bq_cmek_key_name,
+        kms_key_name=cfg.bq_cmek_key_name, write_disposition=write_disposition,
     )
 
     logger.info("period.complete", extra={
